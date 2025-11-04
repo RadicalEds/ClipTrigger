@@ -1,5 +1,6 @@
 # ClipTrigger
-Triggers Modular Actions based on Clipboard Content
+Triggers Modular Actions based on Clipboard Content    
+
 ![Application Screenshot](https://media.discordapp.net/attachments/1434270963977031690/1435107896613671069/2025-11-03_21-22-43.png?ex=690ac3e1&is=69097261&hm=697e849b9e3bbc9186a7d2dd92a9be475fe7b278b0f9ea7c692481718e76d089&=&format=webp&quality=lossless)
 
 ## Description
