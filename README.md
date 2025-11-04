@@ -17,5 +17,5 @@ We have included an example trigger file, it triggers on YouTube links and asks 
 to build the deb file just run build.sh    
 then to install the deb you run `sudo apt install ./debfile.deb`    
 
-## Installing on any Other OS
-if your on a different os, just copy cliptrigger to your PATH and create the directory "~/.config/cliptrigger/triggers/" (optionally copy the included triggers to this directory)
+## Installing on any Other Linux
+if you are on a different type of Linux, just copy `ClipTrigger_v1.0/usr/bin/cliptrigger` to your PATH and create the directory "~/.config/cliptrigger/triggers/" (optionally, copy the included triggers in `ClipTrigger_v1.0/etc/xdg/cliptrigger/triggers/` to this directory)
