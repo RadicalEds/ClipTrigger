@@ -1,0 +1,8 @@
+Package: cliptrigger
+Version: 1.0
+Section: utils
+Priority: optional
+Maintainer: RadicalEd <Radical.Edward@mail.com>
+Architecture: all
+Description: Trigger Modular Actions Based on Clipboard Content
+Depends: xclip, zenity

@@ -1,0 +1,210 @@
+#!/bin/bash
+BANNER='
+  mm .m,    W       .mmm,       W                      
+ W""["T[    "       ""W"`       "                      
+]P    ][   WW  ]bWb   W   WdW[ WW   dWd[ dWd[ dWb  WdW[
+][    ][    W  ]P T[  W   W`    W  ]P T[]P T[]bmd[ W`  
+]b    ][    W  ][ ][  W   W     W  ][ ][][ ][]P""` W   
+ Wmm[ ]bm .mWm,]WmW`  W   W   .mWm,"WmW["WmW["Wmm[ W   
+  ""   "" """"`]["`   "   "   """"` /"][ /"][ """  "   
+               ][                   TWP` TWP`          '
+######################################
+
+         NAME="cliptrigger"
+      VERSION="1.0"
+       AUTHOR="RadicalEd"
+ REQUIREMENTS=(xclip zenity notify-send tput)
+      SUMMARY="Trigger Modular Actions based on Clipboard Content"
+       config="${XDG_CONFIG_HOME:-${HOME}/.config}/$NAME"
+        cache="${XDG_CACHE_HOME:-${HOME}/.cache}/$NAME"
+
+read -r -d '' DESCRIPTION << EOF
+	Actions, or "Triggers", are bash "snippets" placed within "$config/triggers". Each file, ending with .sh, is sourced into the program, in filename order, everytime the clipboard is analysed.
+
+	Sourcing them as snippets allows the script to have full access to our variables and functions. The \$content variable will contain the clipboards current content (can be modified by previous triggers), and the broadcast function is used to send event messages and notifications.
+EOF
+
+######################################
+black () {
+	echo -n "$(tput setaf 0)$*$(tput sgr0)"
+}
+red () {
+	echo -n "$(tput setaf 1)$*$(tput sgr0)"
+}
+green () {
+	echo -n "$(tput setaf 2)$*$(tput sgr0)"
+}
+yellow () {
+	echo -n "$(tput setaf 3)$*$(tput sgr0)"
+}
+blue () {
+	echo -n "$(tput setaf 4)$*$(tput sgr0)"
+}
+magenta () {
+	echo -n "$(tput setaf 5)$*$(tput sgr0)"
+}
+cyan () {
+	echo -n "$(tput setaf 6)$*$(tput sgr0)"
+}
+white () {
+	echo -n "$(tput setaf 7)$*$(tput sgr0)"
+}
+bold () {
+	echo -n "$(tput bold)$*$(tput sgr0)"
+}
+colorize () {
+	color="$1"
+	shift
+	if [ "$greyscale" ];then
+		echo -n "$*"
+	else
+		case "$color" in
+			(black) black "$*";;
+			(red) red "$*";;
+			(green) green "$*";;
+			(yellow) yellow "$*";;
+			(blue) blue "$*";;
+			(magenta) magenta "$*";;
+			(cyan) cyan "$*";;
+			(white) white "$*";;
+			(*) echo -n "$*";;
+		esac
+	fi
+}
+
+######################################
+# Initialization
+
+PROGRAM="$(basename "$0")"
+usage () {
+cat << EOF >&2
+
+$(bold "$NAME v$VERSION") by $(bold "$AUTHOR")
+
+$(bold SUMMARY)
+	$SUMMARY
+
+$(bold DESCRIPTION)
+	$DESCRIPTION
+
+$(bold USAGE): $PROGRAM [-h] [-g] [-n] [-p] [-w] [-s sel]
+
+	-s sel : Clipboard to use [c/p] (default: c)
+	-n     : Send Broadcast Notifications
+	-w     : Watch Clipboard for Updates
+	-p     : Passive Mode, Logging Only
+	-d     : Show Debugging Messages
+	-g     : Greyscale, no colors
+	-h     : Show Program Usage
+EOF
+exit ${1:-0}
+}
+
+# Error Handler
+error () {
+	echo "$(bold "$(red Error:) $(yellow "$*")")" >&2
+	usage ${2:-1}
+}
+
+# Check Requirements
+for req in ${REQUIREMENTS[@]};do
+	which "$req" >/dev/null || error "$(bold "$req") not found in PATH"
+done
+
+# Populate Environment
+[ ! -e "$config" ] && mkdir -p "$config"
+[ ! -e "$config/triggers" ] && cp -r "/etc/xdg/$NAME/triggers" "$config/triggers"
+[ ! -e "$cache" ] && mkdir -p "$cache"
+sel="c"
+
+# Load Config File
+[ -e "$config/config" ] && source "$config/config"
+
+# Handle Argument Overrides
+while getopts 'whpgdns:' o;do
+	case "${o}" in
+		(w) watch="true";;
+		(s) sel="${OPTARG}";;
+		(n) notifications="true";;
+		(p) passive="true";;
+		(d) debugging="true";;
+		(g) greyscale="true";;
+		(h) usage;;
+		(*) usage 1;;
+	esac
+done
+
+# Update ARGV
+shift $((OPTIND-1))
+
+######################################
+# Functions
+
+broadcast () {
+	local OPTIND OPTARG o color icon 
+	while getopts 'i:c:' o;do
+		case "${o}" in
+			(c) color="${OPTARG}";;
+			(i) icon="${OPTARG}";;
+		esac
+	done
+	debug "broadcast: $*"
+	debug "color: $color"
+	debug "icon: $icon"
+	shift $((OPTIND-1))
+	debug "broadcast after shift: $*"
+	event="$1"
+	content="$2"
+	[ "$notifications" ] && notify-send -i "${icon:-dialog-information}" "$event" "$content"
+	if [ "$color" ];then
+		echo "$(colorize "$color" "$event")|$content"
+	else
+		echo "$event|$content"
+	fi
+}
+
+debug () {
+	[ "$debugging" ] && echo "$(yellow "$(bold "$(date +%H:%M:%S)") $*")" >&2
+}
+
+get_cb_content () {
+	xclip -out -sel "$sel" 2>/dev/null
+}
+
+analyse () {
+	content="$*"
+	debug "Analysing: $content"
+	[ -e "$config/triggers" ] && find "$config/triggers" -type f -iname '*.sh' | while read trigger;do
+		debug "$trigger"
+		source "$trigger"
+	done
+}
+
+######################################
+# Execution
+
+echo "$(bold "$(colorize red "$BANNER")")" >&2
+
+if [ "$watch" ];then
+	# watch clipboard for changes
+	echo "$(bold Watching Clipboard): $sel" >&2
+	old="placeholder"
+	new="placeholder"
+	while true;do
+		new="$(get_cb_content)"
+		if [ ! "$old" == "$new" ];then
+			debug "New Content: $new"
+			analyse "$new"
+		fi
+		old="$new"
+		sleep 1
+	done
+else
+	# analyse current clipboard then exit
+	echo "$(bold Processing Clipboard): $sel" >&2
+	content="$(get_cb_content)"
+	analyse $content
+	echo "$(bold All Done)" >&2
+fi
+
+######################################
